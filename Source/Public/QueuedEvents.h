@@ -37,73 +37,19 @@ template <typename T>
 class EventQueue;
 
 //--------------------------------------------------------------------------
-// Dispatcher
+// EventDispatcher
 //--------------------------------------------------------------------------
 /**
  * A simple event dispatcher.
  *
- * Supports subscribing to events of a given C++ type, and notifying subscribers
- * that an event occurred.
+ * Through notify<T>(), dispatches events to any subscribed EventQueues of a
+ * matching type T.
  */
-class Dispatcher
+class EventDispatcher
 {
 public:
     // See queueVectorMap comment for details.
     using QueueVector = std::vector<void*>;
-
-    /**
-     * Returns a new event queue, subscribed to receive notifications for events
-     * of type T.
-     */
-    template <typename T>
-    std::unique_ptr<EventQueue<T>> subscribe()
-    {
-        // Get the vector of queues for type T.
-        QueueVector& queueVector{getQueueVectorForType<T>()};
-
-        // Acquire a write lock before modifying the vector.
-        std::unique_lock lock(queueVectorMapMutex);
-
-        // Allocate the new queue and add it to the vector.
-        std::unique_ptr<EventQueue<T>> queuePtr{std::make_unique<EventQueue<T>>(*this)};
-        queueVector.push_back(queuePtr.get());
-
-        // Return the queue.
-        return queuePtr;
-    }
-
-    /**
-     * Unsubscribes the given event queue. It will no longer receive event
-     * notifications.
-     */
-    template<typename T>
-    void unsubscribe(const EventQueue<T>* unsubQueuePtr)
-    {
-        // Get the vector of queues for type T.
-        QueueVector& queueVector{getQueueVectorForType<T>()};
-
-        // Search for the given queue in the vector.
-        auto queueIt = queueVector.begin();
-        for (; queueIt != queueVector.end(); ++queueIt) {
-            if (*queueIt == unsubQueuePtr) {
-                break;
-            }
-        }
-
-        // If we didn't find the given queue, error.
-        if (queueIt == queueVector.end()) {
-            std::cout << "Failed to find expected queue." << std::endl;
-            std::abort();
-        }
-
-        // Acquire a write lock before modifying the vector.
-        std::unique_lock lock(queueVectorMapMutex);
-
-        // Remove the queue at the given index.
-        // Note: This may do some extra work to fill the gap, but there's
-        //       probably only 2-3 elements and shared_ptrs are small.
-        queueVector.erase(queueIt);
-    }
 
     /**
      * Pushes the given event to all queues subscribed to receive events of
@@ -144,6 +90,10 @@ public:
     }
 
 private:
+    /** Only give EventQueue access to subscribe() and unsubscribe(), so users
+        don't get confused about how to use the interface. */
+    template<typename> friend class EventQueue;
+
     /**
      * Returns the next unique integer key value. Used by getKeyForType().
      */
@@ -170,6 +120,59 @@ private:
         return queueVectorMap[key];
     }
 
+    /**
+     * Returns a new event queue, subscribed to receive notifications for
+     * events of type T.
+     */
+    template <typename T>
+    void subscribe(EventQueue<T>* queuePtr)
+    {
+        // Get the vector of queues for type T.
+        QueueVector& queueVector{getQueueVectorForType<T>()};
+
+        // Acquire a write lock before modifying the vector.
+        std::unique_lock lock(queueVectorMapMutex);
+
+        // Add the given queue to the vector.
+        // Allocate the new queue and add it to the vector.
+        queueVector.push_back(static_cast<void*>(queuePtr));
+    }
+
+    /**
+     * Unsubscribes the given event queue. It will no longer receive event
+     * notifications.
+     */
+    template<typename T>
+    void unsubscribe(const EventQueue<T>* unsubQueuePtr)
+    {
+        // Get the vector of queues for type T.
+        QueueVector& queueVector{getQueueVectorForType<T>()};
+
+        // Search for the given queue in the vector.
+        auto queueIt = queueVector.begin();
+        for (; queueIt != queueVector.end(); ++queueIt) {
+            if (*queueIt == unsubQueuePtr) {
+                break;
+            }
+        }
+
+        // Error if we didn't find the queue.
+        // Note: Since this function is only called in EventQueue's
+        //       destructor, we should expect it to always find the queue.
+        if (queueIt == queueVector.end()) {
+            std::cout << "Failed to find queue while unsubscribing." << std::endl;
+            std::abort();
+        }
+
+        // Acquire a write lock before modifying the vector.
+        std::unique_lock lock(queueVectorMapMutex);
+
+        // Remove the queue at the given index.
+        // Note: This may do some extra work to fill the gap, but there's
+        //       probably only 2-3 elements and shared_ptrs are small.
+        queueVector.erase(queueIt);
+    }
+
     /** A map of integer keys -> vectors of event queues.
         We store each EventQueue<T> as a void pointer so that they can share
         a vector, then cast them to the appropriate type in our templated
@@ -184,7 +187,7 @@ private:
 // EventQueue
 //--------------------------------------------------------------------------
 /**
- * A simple event queue.
+ * A simple event listener queue.
  *
  * Supports pushing events into the queue (done by Dispatcher), and popping
  * events off the queue.
@@ -193,9 +196,10 @@ template <typename T>
 class EventQueue
 {
 public:
-    EventQueue(Dispatcher& inDispatcher)
+    EventQueue(EventDispatcher& inDispatcher)
     : dispatcher{inDispatcher}
     {
+        dispatcher.subscribe(this);
     }
 
     ~EventQueue()
@@ -203,21 +207,6 @@ public:
         // Note: This acquires a write lock, don't destruct this queue unless
         //       you don't mind potentially waiting.
         dispatcher.unsubscribe<T>(this);
-    }
-
-    /**
-     * Pushes the given event into the queue.
-     *
-     * Errors if a memory allocation fails while pushing the event into the
-     * queue.
-     */
-    void push(const std::shared_ptr<const T>& event)
-    {
-        // Push the event into the queue.
-        if (!(queue.enqueue(event))) {
-            std::cout << "Memory allocation failed while pushing an event." << std::endl;
-            std::abort();
-        }
     }
 
     /**
@@ -248,8 +237,27 @@ public:
     }
 
 private:
+    /** Only give EventDispatcher access to push(), so users don't get confused
+        about how to use the interface. */
+    friend class EventDispatcher;
+
+    /**
+     * Pushes the given event into the queue.
+     *
+     * Errors if a memory allocation fails while pushing the event into the
+     * queue.
+     */
+    void push(const std::shared_ptr<const T>& event)
+    {
+        // Push the event into the queue.
+        if (!(queue.enqueue(event))) {
+            std::cout << "Memory allocation failed while pushing an event." << std::endl;
+            std::abort();
+        }
+    }
+
     /** A reference to our parent dispatcher. */
-    Dispatcher& dispatcher;
+    EventDispatcher& dispatcher;
 
     /** The event queue. Holds events that have been pushed into it by the
         dispatcher. */
