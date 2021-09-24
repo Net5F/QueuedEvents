@@ -24,10 +24,10 @@ struct TestStruct
 
 // Construct the dispatcher (normally done in a producer context and made 
 // available to the consumer context through a getter).
-EventDispatcher dispatcher;
+AM::EventDispatcher dispatcher;
 
 // Construct the queue (subscribes itself using the dispatcher reference).
-EventQueue<TestStruct> testStructQueue(dispatcher);
+AM::EventQueue<TestStruct> testStructQueue(dispatcher);
 
 // Push an event to all subscribed queues (must be wrapped in a shared_ptr).
 std::shared_ptr<TestStruct> testStruct = std::make_shared<TestStruct>(10);
