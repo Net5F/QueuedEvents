@@ -1,5 +1,5 @@
 # A simple C++ event system that pushes events into thread-safe queues.
-This event system satisfies a simple use case--sending events from a producer thread into queues that can later be processed.
+This event system satisfies a simple use case--sending events from a producer thread into consumer queues that can later be processed.
 
 For me, this means my network thread can push messages (and other network events) down to my simulation's systems, and those systems can process those events during the next tick.
 
