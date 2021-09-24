@@ -4,7 +4,7 @@
 #include <vector>
 #include <unordered_map>
 #include <memory>
-#include <shared_mutex>
+#include <mutex>
 #include <cstdlib>
 #include <iostream>
 
@@ -19,14 +19,10 @@ namespace AM
  *
  *   Notifications are thread-safe and queued.
  *
- * Be aware:
- *   EventQueue uses a single producer/single consumer queue, so it isn't
- *   safe to notify the same type across multiple threads. Notifying different
- *   types should be fine.
- *
- *   Dispatcher's subscribe() and unsubscribe() acquire a write (unique) lock
- *   over the internal data structure. While they're running, notify() will
- *   block.
+ * Thread safety:
+ *   notify(), subscribe(), and unsubscribe() will block if either of the
+ *   other two are running. This means they're safe to call across threads,
+ *   but may not be perfectly performant.
  *
  * Note: It would be ideal to have the two classes in separate headers, but
  *       we would run into circular include issues.
@@ -52,14 +48,13 @@ public:
     using QueueVector = std::vector<void*>;
 
     /**
-     * Pushes the given event to all queues subscribed to receive events of
-     * type T.
+     * Pushes the given event to all queues of type T.
      */
     template <typename T>
     void notify(const std::shared_ptr<const T>& event)
     {
-        // Acquire a read lock before accessing a queue.
-        std::shared_lock readLock(queueVectorMapMutex);
+        // Acquire a lock before accessing a queue.
+        std::scoped_lock lock(queueVectorMapMutex);
 
         // Get the vector of queues for type T.
         QueueVector& queueVector{getQueueVectorForType<T>()};
@@ -121,17 +116,18 @@ private:
     }
 
     /**
-     * Returns a new event queue, subscribed to receive notifications for
-     * events of type T.
+     * Subscribes the given queue to receive event notifications.
+     *
+     * Only used by EventQueue.
      */
     template <typename T>
     void subscribe(EventQueue<T>* queuePtr)
     {
+        // Acquire a lock since we're going to be modifying data structures.
+        std::scoped_lock lock(queueVectorMapMutex);
+
         // Get the vector of queues for type T.
         QueueVector& queueVector{getQueueVectorForType<T>()};
-
-        // Acquire a write lock before modifying the vector.
-        std::unique_lock lock(queueVectorMapMutex);
 
         // Add the given queue to the vector.
         // Allocate the new queue and add it to the vector.
@@ -141,10 +137,15 @@ private:
     /**
      * Unsubscribes the given event queue. It will no longer receive event
      * notifications.
+     *
+     * Only used by EventQueue.
      */
     template<typename T>
     void unsubscribe(const EventQueue<T>* unsubQueuePtr)
     {
+        // Acquire a lock since we're going to be modifying data structures.
+        std::scoped_lock lock(queueVectorMapMutex);
+
         // Get the vector of queues for type T.
         QueueVector& queueVector{getQueueVectorForType<T>()};
 
@@ -164,9 +165,6 @@ private:
             std::abort();
         }
 
-        // Acquire a write lock before modifying the vector.
-        std::unique_lock lock(queueVectorMapMutex);
-
         // Remove the queue at the given index.
         // Note: This may do some extra work to fill the gap, but there's
         //       probably only 2-3 elements and shared_ptrs are small.
@@ -180,7 +178,7 @@ private:
     std::unordered_map<int, QueueVector> queueVectorMap;
 
     /** Used to lock access to the queueVectorMap. */
-    std::shared_mutex queueVectorMapMutex;
+    std::mutex queueVectorMapMutex;
 };
 
 //--------------------------------------------------------------------------
