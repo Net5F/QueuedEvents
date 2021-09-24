@@ -5,7 +5,7 @@ project(QueuedEvents)
 ###############################################################################
 # Options
 ###############################################################################
-option(QUEUEDEVENTS_BUILD_TESTS "Build tests." ON)
+option(QUEUEDEVENTS_BUILD_TESTS "Build tests." OFF)
 
 ###############################################################################
 # Dependencies 
