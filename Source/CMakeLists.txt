@@ -23,7 +23,7 @@ target_link_libraries(QueuedEvents
 # Tell CMake we're using C++ (it has trouble detecting it).
 set_target_properties(QueuedEvents PROPERTIES LINKER_LANGUAGE CXX)
 
-# Compile with C++20
+# Compile with C++20.
 target_compile_features(QueuedEvents INTERFACE cxx_std_20)
 set_target_properties(QueuedEvents PROPERTIES CXX_EXTENSIONS OFF)
 
