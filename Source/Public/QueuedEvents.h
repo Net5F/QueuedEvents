@@ -252,6 +252,20 @@ public:
     }
 
     /**
+     * Attempts to pop the front event from the queue, blocking and waiting
+     * for up to timeoutUs microseconds before returning false if one is not
+     * available.
+     *
+     * A negative timeoutUs causes an indefinite wait.
+     *
+     * @return true if an event was available, else false if we timed out.
+     */
+    bool waitPop(T& event, std::int64_t timeoutUs)
+    {
+        return queue.wait_dequeue_timed(event, timeoutUs);
+    }
+
+    /**
      * @return If the queue is empty, returns nullptr. Else, returns a pointer
      * to the front event of the queue (the one that would be removed by the
      * next call to pop()).
@@ -310,7 +324,7 @@ private:
 
     /** The event queue. Holds events that have been pushed into it by the
         dispatcher. */
-    moodycamel::ReaderWriterQueue<T> queue;
+    moodycamel::BlockingReaderWriterQueue<T> queue;
 };
 
 } // End namespace AM

@@ -184,7 +184,7 @@ TEST_CASE("TestQueuedEvents")
         EventQueue<TestStruct1> queue1(dispatcher);
         EventQueue<TestStruct2> queue2(dispatcher);
         
-        // Create our notification thread.
+        // Create our producer thread.
         unsigned int eventsToSend{100};
         std::thread pushThread([&dispatcher, eventsToSend]() {
             TestStruct1 testStruct1{10};
@@ -276,6 +276,34 @@ TEST_CASE("TestQueuedEvents")
             queue.pop();
             REQUIRE(queue.size() == (3 - i));
         }
+    }
+    
+    SECTION("Wait pop")
+    {
+        // Construct the queue.
+        EventQueue<TestStruct1> queue(dispatcher);
+        REQUIRE(queue.size() == 0);
+
+        // Start a thread that will wait for 1s before pushing an event.
+        std::thread pushThread([&dispatcher]() {
+            // Wait.
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            
+            // Push an event.
+            dispatcher.emplace<TestStruct1>(10);
+        });
+        
+        // The event should not yet be ready.
+        REQUIRE(queue.size() == 0);
+        
+        // Wait up to 3 seconds for the event.
+        TestStruct1 testStruct{};
+        bool result = queue.waitPop(testStruct, (3 * 1000 * 1000));
+        REQUIRE(result);
+        REQUIRE(testStruct.temp1 == 10);
+        REQUIRE(queue.size() == 0);
+        
+        pushThread.join();
     }
 }
 
