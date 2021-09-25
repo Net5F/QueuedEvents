@@ -5,11 +5,11 @@ For me, this means my network thread can push messages (and other network events
 
 ## Features
 * Uses moodycamel::ReaderWriterQueue under the hood. Very fast, well tested, and well maintained.
-* Pretty fast itself, only about twice the overhead of pushing/popping from the raw queue. 
-  * Down to 1.4x if I can figure out how to get rid of the locks.
+* Pretty fast itself, only about 1.5x the overhead of pushing/popping from the raw queue. 
+  * Performance has only lightly been tested, YMMV.
 * Very, very simple interface. One line each to construct a dispatcher, construct and subscribe a queue, notify, and receive.
 * Handles any arbitrary type with no type registration or overhead.
-  * This is a downside if you like to have a list of available types, but you can always do an IDE lookup on EventDispatcher::notify().
+  * This is a downside if you like to have a list of available types, but you can always do an IDE lookup on EventDispatcher::push() or enqueue().
 * Well-commented, understandable, maintainable code.
   * It's somewhat complex due to the nature of template metaprogramming, but I prioritize keeping things well documented.
 
@@ -17,7 +17,7 @@ For me, this means my network thread can push messages (and other network events
 ```
 #include "QueuedEvents.h"
 
-struct TestStruct
+struct Foo
 {
   int count{0};
 };
@@ -27,15 +27,25 @@ struct TestStruct
 AM::EventDispatcher dispatcher;
 
 // Construct the queue (subscribes itself using the dispatcher reference).
-AM::EventQueue<TestStruct> testStructQueue(dispatcher);
+AM::EventQueue<Foo> queue(dispatcher);
 
-// Push an event to all subscribed queues (must be wrapped in a shared_ptr).
-std::shared_ptr<TestStruct> testStruct = std::make_shared<TestStruct>(10);
-dispatcher.notify<TestStruct>(testStruct);
+// Push an event to all subscribed queues.
+Foo foo{10};
+dispatcher.push<Foo>(foo);
 
-// Receive the event (becomes const so that multiple receivers can't change
-// eachother's received data).
-std::shared_ptr<const TestStruct> receivedStruct = testStructQueue.pop();
+// You can also move or emplace.
+dispatcher.push<Foo>(std::move(foo));
+
+dispatcher.emplace<Foo>(10);
+
+// Receive the event.
+Foo receivedFoo;
+bool result = queue.pop(receivedFoo); // Will be false if queue is empty.
+
+// You can also peek and empty pop.
+Foo* fooPtr = queue.peek(); // Will be nullptr if queue is empty.
+
+queue.pop(); // Do this after you're done using the pointer.
 ```
 
 ## Build
