@@ -3,9 +3,9 @@
 #include "readerwriterqueue.h"
 #include <vector>
 #include <unordered_map>
-#include <memory>
 #include <mutex>
 #include <cstdlib>
+#include <utility>
 #include <iostream>
 
 namespace AM
@@ -51,7 +51,7 @@ public:
      * Pushes the given event to all queues of type T.
      */
     template <typename T>
-    void notify(const std::shared_ptr<const T>& event)
+    void push(const T& event)
     {
         // Acquire a lock before accessing a queue.
         std::scoped_lock lock(queueVectorMapMutex);
@@ -66,6 +66,50 @@ public:
 
             // Push the event.
             castQueue->push(event);
+        }
+    }
+
+    /**
+     * Pushes the given event using move semantics to all queues of type T.
+     */
+    template <typename T>
+    void push(T&& event)
+    {
+        // Acquire a lock before accessing a queue.
+        std::scoped_lock lock(queueVectorMapMutex);
+
+        // Get the vector of queues for type T.
+        QueueVector& queueVector{getQueueVectorForType<T>()};
+
+        // Push the given event into all queues.
+        for (auto& queue : queueVector) {
+            // Cast the queue to type T.
+            EventQueue<T>* castQueue{static_cast<EventQueue<T>*>(queue)};
+
+            // Push the event.
+            castQueue->push(std::move(event));
+        }
+    }
+
+    /**
+     * Constructs the given event in place in all queues of type T.
+     */
+    template <typename T, typename... Args>
+    void emplace(Args&&... args)
+    {
+        // Acquire a lock before accessing a queue.
+        std::scoped_lock lock(queueVectorMapMutex);
+
+        // Get the vector of queues for type T.
+        QueueVector& queueVector{getQueueVectorForType<T>()};
+
+        // Push the given event into all queues.
+        for (auto& queue : queueVector) {
+            // Cast the queue to type T.
+            EventQueue<T>* castQueue{static_cast<EventQueue<T>*>(queue)};
+
+            // Push the event.
+            castQueue->emplace(std::forward<Args>(args)...);
         }
     }
 
@@ -167,7 +211,7 @@ private:
 
         // Remove the queue at the given index.
         // Note: This may do some extra work to fill the gap, but there's
-        //       probably only 2-3 elements and shared_ptrs are small.
+        //       probably only 2-3 elements and pointers are small.
         queueVector.erase(queueIt);
     }
 
@@ -208,22 +252,35 @@ public:
     }
 
     /**
-     * Attempts to pop the top event from the queue.
+     * Attempts to pop the front event from the queue.
      *
-     * @return An event if the queue was non-empty, else nullptr;
+     * @return true if an event was available, else false.
      */
-    std::shared_ptr<const T> pop()
+    bool pop(T& event)
     {
         // Try to pop an event.
-        std::shared_ptr<const T> event;
-        if (queue.try_dequeue(event)) {
-            // We had an event to pop, return it.
-            return event;
-        }
-        else {
-            // The queue was empty.
-            return nullptr;
-        }
+        return queue.try_dequeue(event);
+    }
+
+    /**
+     * Override that removes the front event of the queue without returning
+     * it.
+     *
+     * @return true if an event was available, else false.
+     */
+    bool pop()
+    {
+        return queue.pop();
+    }
+
+    /**
+     * @return If the queue is empty, returns nullptr. Else, returns a pointer
+     * to the front event of the queue (the one that would be removed by the
+     * next call to pop()).
+     */
+    T* peek() const
+    {
+        return queue.peek();
     }
 
     /**
@@ -245,10 +302,41 @@ private:
      * Errors if a memory allocation fails while pushing the event into the
      * queue.
      */
-    void push(const std::shared_ptr<const T>& event)
+    void push(const T& event)
     {
         // Push the event into the queue.
         if (!(queue.enqueue(event))) {
+            std::cout << "Memory allocation failed while pushing an event." << std::endl;
+            std::abort();
+        }
+    }
+
+    /**
+     * Pushes the given event into the queue using move semantics.
+     *
+     * Errors if a memory allocation fails while pushing the event into the
+     * queue.
+     */
+    void push(T&& event)
+    {
+        // Push the event into the queue.
+        if (!(queue.enqueue(std::move(event)))) {
+            std::cout << "Memory allocation failed while pushing an event." << std::endl;
+            std::abort();
+        }
+    }
+
+    /**
+     * Passes the given event to the queue, to be constructed in place.
+     *
+     * Errors if a memory allocation fails while pushing the event into the
+     * queue.
+     */
+    template<typename... Args>
+    void emplace(Args&&... args)
+    {
+        // Push the event into the queue.
+        if (!(queue.emplace(std::forward<Args>(args)...))) {
             std::cout << "Memory allocation failed while pushing an event." << std::endl;
             std::abort();
         }
@@ -259,7 +347,7 @@ private:
 
     /** The event queue. Holds events that have been pushed into it by the
         dispatcher. */
-    moodycamel::ReaderWriterQueue<std::shared_ptr<const T>> queue;
+    moodycamel::ReaderWriterQueue<T> queue;
 };
 
 } // End namespace AM

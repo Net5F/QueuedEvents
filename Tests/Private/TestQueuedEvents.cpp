@@ -30,107 +30,143 @@ TEST_CASE("TestQueuedEvents")
         REQUIRE(dispatcher.getNumQueuesForType<TestStruct1>() == 0);
     }
 
-    SECTION("Notify single type once")
+    SECTION("Push single type once")
     {
         // Construct the queue.
         EventQueue<TestStruct1> queue(dispatcher);
         REQUIRE(queue.size() == 0);
 
-        // Notify once.
-        dispatcher.notify<TestStruct1>(std::make_shared<const TestStruct1>(10));
+        // Push once.
+        TestStruct1 testStruct{10};
+        dispatcher.push<TestStruct1>(testStruct);
         REQUIRE(queue.size() == 1);
 
         // Check if we got the event.
-        std::shared_ptr<const TestStruct1> testEvent = queue.pop();
-        REQUIRE(testEvent != nullptr);
-        REQUIRE(testEvent->temp1 == 10);
+        TestStruct1 testEvent;
+        REQUIRE(queue.pop(testEvent));
+        REQUIRE(testEvent.temp1 == 10);
         REQUIRE(queue.size() == 0);
     }
 
-    SECTION("Notify single type multiple times")
+    SECTION("Move single type once")
+    {
+        // Construct the queue.
+        EventQueue<TestStruct1> queue(dispatcher);
+        REQUIRE(queue.size() == 0);
+
+        // Push once.
+        TestStruct1 testStruct{10};
+        dispatcher.push<TestStruct1>(std::move(testStruct));
+        REQUIRE(queue.size() == 1);
+
+        // Check if we got the event.
+        TestStruct1 testEvent;
+        REQUIRE(queue.pop(testEvent));
+        REQUIRE(testEvent.temp1 == 10);
+        REQUIRE(queue.size() == 0);
+    }
+
+    SECTION("Emplace single type once")
+    {
+        // Construct the queue.
+        EventQueue<TestStruct1> queue(dispatcher);
+        REQUIRE(queue.size() == 0);
+
+        // Push once.
+        dispatcher.emplace<TestStruct1>(10);
+        REQUIRE(queue.size() == 1);
+
+        // Check if we got the event.
+        TestStruct1 testEvent;
+        REQUIRE(queue.pop(testEvent));
+        REQUIRE(testEvent.temp1 == 10);
+        REQUIRE(queue.size() == 0);
+    }
+
+    SECTION("Push single type multiple times")
     {
         // Construct the queue.
         EventQueue<TestStruct1> queue(dispatcher);
 
-        // Notify multiple times.
+        // Push multiple times.
         for (unsigned int i = 0; i < 5; ++i) {
-            dispatcher.notify<TestStruct1>(std::make_shared<const TestStruct1>(i));
+            dispatcher.emplace<TestStruct1>(i);
         }
         REQUIRE(queue.size() == 5);
 
         // Check if we got the events.
         for (unsigned int i = 0; i < 5; ++i) {
-            std::shared_ptr<const TestStruct1> testEvent = queue.pop();
-            REQUIRE(testEvent != nullptr);
-            REQUIRE(testEvent->temp1 == i);
+            TestStruct1 testEvent;
+            REQUIRE(queue.pop(testEvent));
+            REQUIRE(testEvent.temp1 == i);
         }
         REQUIRE(queue.size() == 0);
     }
 
-    SECTION("Notify multiple types once")
+    SECTION("Push multiple types once")
     {
         // Construct the TestStruct1 queue.
         EventQueue<TestStruct1> queue(dispatcher);
 
-        // Notify TestStruct1 once.
-        dispatcher.notify<TestStruct1>(std::make_shared<const TestStruct1>(10));
+        // Push TestStruct1 once.
+        dispatcher.emplace<TestStruct1>(10);
         REQUIRE(queue.size() == 1);
 
         // Check if we got the event.
-        std::shared_ptr<const TestStruct1> testEvent = queue.pop();
-        REQUIRE(testEvent != nullptr);
-        REQUIRE(testEvent->temp1 == 10);
+        TestStruct1 testEvent;
+        REQUIRE(queue.pop(testEvent));
+        REQUIRE(testEvent.temp1 == 10);
         REQUIRE(queue.size() == 0);
 
         // Construct the TestStruct2 queue.
         EventQueue<TestStruct2> queue2(dispatcher);
 
-        // Notify TestStruct2 once.
-        dispatcher.notify<TestStruct2>(std::make_shared<const TestStruct2>(20.0f));
+        // Push TestStruct2 once.
+        dispatcher.emplace<TestStruct2>(20.0f);
         REQUIRE(queue2.size() == 1);
 
         // Check if we got the event.
-        std::shared_ptr<const TestStruct2> testEvent2 = queue2.pop();
-        REQUIRE(testEvent2 != nullptr);
-        REQUIRE(testEvent2->temp2 == 20.0f);
+        TestStruct2 testEvent2;
+        REQUIRE(queue2.pop(testEvent2));
+        REQUIRE(testEvent2.temp2 == 20.0f);
         REQUIRE(queue2.size() == 0);
     }
 
-    SECTION("Notify multiple types multiple times")
+    SECTION("Push multiple types multiple times")
     {
         // Construct the TestStruct1 queue.
         EventQueue<TestStruct1> queue(dispatcher);
 
-        // Notify TestStruct1 multiple times.
+        // Push TestStruct1 multiple times.
         for (unsigned int i = 0; i < 5; ++i) {
-            dispatcher.notify<TestStruct1>(std::make_shared<const TestStruct1>(i * 10));
+            dispatcher.emplace<TestStruct1>(i * 10);
         }
         REQUIRE(queue.size() == 5);
 
         // Construct the TestStruct2 queue.
         EventQueue<TestStruct2> queue2(dispatcher);
 
-        // Notify TestStruct2 multiple times.
+        // Push TestStruct2 multiple times.
         for (unsigned int i = 0; i < 5; ++i) {
-            dispatcher.notify<TestStruct2>(std::make_shared<const TestStruct2>(i * 20));
+            dispatcher.emplace<TestStruct2>(i * 20);
         }
         REQUIRE(queue2.size() == 5);
 
         // Check if we got the events.
         for (unsigned int i = 0; i < 5; ++i) {
-            std::shared_ptr<const TestStruct1> testEvent = queue.pop();
-            REQUIRE(testEvent != nullptr);
-            REQUIRE(testEvent->temp1 == (i * 10));
+            TestStruct1 testEvent;
+            REQUIRE(queue.pop(testEvent));
+            REQUIRE(testEvent.temp1 == (i * 10));
 
-            std::shared_ptr<const TestStruct2> testEvent2 = queue2.pop();
-            REQUIRE(testEvent2 != nullptr);
-            REQUIRE(testEvent2->temp2 == static_cast<float>((i * 20)));
+            TestStruct2 testEvent2;
+            REQUIRE(queue2.pop(testEvent2));
+            REQUIRE(testEvent2.temp2 == static_cast<float>((i * 20)));
         }
         REQUIRE(queue.size() == 0);
         REQUIRE(queue2.size() == 0);
     }
 
-    SECTION("Notify multiple queues.")
+    SECTION("Push multiple queues.")
     {
         // Construct the first queue.
         EventQueue<TestStruct1> queue1(dispatcher);
@@ -139,28 +175,28 @@ TEST_CASE("TestQueuedEvents")
         EventQueue<TestStruct1> queue2(dispatcher);
         REQUIRE(dispatcher.getNumQueuesForType<TestStruct1>() == 2);
 
-        // Notify multiple times.
+        // Push multiple times.
         for (unsigned int i = 0; i < 5; ++i) {
-            dispatcher.notify<TestStruct1>(std::make_shared<const TestStruct1>(i));
+            dispatcher.emplace<TestStruct1>(i);
         }
         REQUIRE(queue1.size() == 5);
         REQUIRE(queue2.size() == 5);
 
         // Check if we got the events.
         for (unsigned int i = 0; i < 5; ++i) {
-            std::shared_ptr<const TestStruct1> testEvent1 = queue1.pop();
-            REQUIRE(testEvent1 != nullptr);
-            REQUIRE(testEvent1->temp1 == i);
+            TestStruct1 testEvent1;
+            REQUIRE(queue1.pop(testEvent1));
+            REQUIRE(testEvent1.temp1 == i);
 
-            std::shared_ptr<const TestStruct1> testEvent2 = queue2.pop();
-            REQUIRE(testEvent2 != nullptr);
-            REQUIRE(testEvent2->temp1 == i);
+            TestStruct1 testEvent2;
+            REQUIRE(queue2.pop(testEvent2));
+            REQUIRE(testEvent2.temp1 == i);
         }
         REQUIRE(queue1.size() == 0);
         REQUIRE(queue2.size() == 0);
     }
     
-    SECTION("Notify/receive across threads")
+    SECTION("Push/receive across threads")
     {
         // Construct our queues.
         EventQueue<TestStruct1> queue1(dispatcher);
@@ -168,19 +204,19 @@ TEST_CASE("TestQueuedEvents")
         
         // Create our notification thread.
         unsigned int eventsToSend{100};
-        std::thread notifyThread([&dispatcher, eventsToSend]() {
-            std::shared_ptr<TestStruct1> testStruct1(std::make_shared<TestStruct1>(10));
-            std::shared_ptr<TestStruct2> testStruct2(std::make_shared<TestStruct2>(20));
+        std::thread pushThread([&dispatcher, eventsToSend]() {
+            TestStruct1 testStruct1{10};
+            TestStruct2 testStruct2{20};
             
-            // Notify a bunch of times.
+            // Push a bunch of times.
             for (unsigned int i = 0; i < eventsToSend; ++i) {
-                dispatcher.notify<TestStruct1>(testStruct1);
+                dispatcher.push<TestStruct1>(testStruct1);
 
                 // We sleep for some small amount of time in a lazy attempt 
                 // to shake out any timing issues.
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
-                dispatcher.notify<TestStruct2>(testStruct2);
+                dispatcher.push<TestStruct2>(testStruct2);
 
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
@@ -189,49 +225,75 @@ TEST_CASE("TestQueuedEvents")
         // Receive the events.
         unsigned int struct1Received{0};
         unsigned int struct2Received{0};
+        TestStruct1 testStruct1;
+        TestStruct2 testStruct2;
         while ((struct1Received < eventsToSend)
                && (struct2Received < eventsToSend)) {
             if ((struct1Received != eventsToSend) 
-               && (queue1.pop() != nullptr)) {
+               && queue1.pop(testStruct1)) {
                 struct1Received++;
             }
 
             if ((struct2Received != eventsToSend) 
-               && (queue2.pop() != nullptr)) {
+               && queue2.pop(testStruct2)) {
                 struct2Received++;
             }
         }
         
-        notifyThread.join();
+        pushThread.join();
         REQUIRE(true);
     }
 
-    SECTION("Notify and construct at the same time")
+    // This test will crash if it fails.
+    SECTION("Push and construct at the same time")
     {
         // Create our notification thread.
         unsigned int eventsToSend{10'000};
         std::atomic<bool> start{false};
-        std::thread notifyThread([&dispatcher, &start, eventsToSend]() {
-            std::shared_ptr<TestStruct1> testStruct1(std::make_shared<TestStruct1>(10));
+        std::thread pushThread([&dispatcher, &start, eventsToSend]() {
+            TestStruct1 testStruct1{10};
             
             // Busy wait for the main thread to be ready.
             while (!start) {
             }
             
-            // Notify a bunch of times.
+            // Push a bunch of times.
             for (unsigned int i = 0; i < eventsToSend; ++i) {
-                dispatcher.notify<TestStruct1>(testStruct1);
+                dispatcher.push<TestStruct1>(testStruct1);
             }
         });
         
-        // Kick off the notify thread and start constructing queues.
+        // Kick off the push thread and start constructing queues.
         start = true;
         for (unsigned int i = 0; i < eventsToSend; ++i) {
             EventQueue<TestStruct1> queue(dispatcher);
         }
 
-        notifyThread.join();
+        pushThread.join();
         REQUIRE(true);
+    }
+    
+    SECTION("Peek")
+    {
+        // Construct the queue.
+        EventQueue<TestStruct1> queue(dispatcher);
+        REQUIRE(queue.size() == 0);
+
+        // Push events.
+        for (unsigned int i = 1; i <= 3; ++i) {
+            dispatcher.emplace<TestStruct1>(i);
+            REQUIRE(queue.size() == i);
+        }
+        
+        // Peek and pop the events.
+        for (unsigned int i = 1; i <= 3; ++i) {
+            TestStruct1* testStruct{queue.peek()};
+            REQUIRE(testStruct != nullptr);
+            REQUIRE(testStruct->temp1 == i);
+            
+            queue.pop();
+            REQUIRE(queue.size() == (3 - i));
+        }
     }
 }
 
@@ -257,11 +319,11 @@ TEST_CASE("TestPerformance", "[.]")
         std::cout << "Running " << iterationCount << " structs through the queue." << std::endl;
         
         // The test struct to use.
-        std::shared_ptr<TestStruct1> testStruct(std::make_shared<TestStruct1>(1));
+        TestStruct1 testStruct{1};
 
         /** Raw queue. */
         // Construct a queue.
-        moodycamel::ReaderWriterQueue<std::shared_ptr<const TestStruct1>> rwQueue;
+        moodycamel::ReaderWriterQueue<TestStruct1> rwQueue;
         
         // Run the test.
         unsigned int count{0};
@@ -271,12 +333,11 @@ TEST_CASE("TestPerformance", "[.]")
             rwQueue.enqueue(testStruct);
             
             // Increment
-            count += testStruct->temp1;
+            count += testStruct.temp1;
             
             // Pop
-            std::shared_ptr<const TestStruct1> receiveStruct{nullptr};
-            rwQueue.try_dequeue(receiveStruct);
-            REQUIRE(receiveStruct != nullptr);
+            TestStruct1 receiveStruct;
+            REQUIRE(rwQueue.try_dequeue(receiveStruct));
         }
         auto stopTime{std::chrono::high_resolution_clock::now()};
         auto queueTestTime{duration_cast<std::chrono::milliseconds>(stopTime - startTime)};
@@ -294,14 +355,14 @@ TEST_CASE("TestPerformance", "[.]")
         startTime = std::chrono::high_resolution_clock::now();
         for (unsigned int i = 0; i < iterationCount; ++i) {
             // Push
-            dispatcher.notify<TestStruct1>(testStruct);
+            dispatcher.push<TestStruct1>(testStruct);
             
             // Increment
-            count += testStruct->temp1;
+            count += testStruct.temp1;
             
             // Pop
-            std::shared_ptr<const TestStruct1> receiveStruct{eventQueue.pop()};
-            REQUIRE(receiveStruct != nullptr);
+            TestStruct1 receiveStruct;
+            REQUIRE(eventQueue.pop(receiveStruct));
         }
         stopTime = std::chrono::high_resolution_clock::now();
         auto dispatcherTestTime{duration_cast<std::chrono::milliseconds>(stopTime - startTime)};
