@@ -48,24 +48,6 @@ TEST_CASE("TestQueuedEvents")
         REQUIRE(queue.size() == 0);
     }
 
-    SECTION("Move single type once")
-    {
-        // Construct the queue.
-        EventQueue<TestStruct1> queue(dispatcher);
-        REQUIRE(queue.size() == 0);
-
-        // Push once.
-        TestStruct1 testStruct{10};
-        dispatcher.push<TestStruct1>(std::move(testStruct));
-        REQUIRE(queue.size() == 1);
-
-        // Check if we got the event.
-        TestStruct1 testEvent;
-        REQUIRE(queue.pop(testEvent));
-        REQUIRE(testEvent.temp1 == 10);
-        REQUIRE(queue.size() == 0);
-    }
-
     SECTION("Emplace single type once")
     {
         // Construct the queue.

@@ -70,28 +70,6 @@ public:
     }
 
     /**
-     * Pushes the given event using move semantics to all queues of type T.
-     */
-    template <typename T>
-    void push(T&& event)
-    {
-        // Acquire a lock before accessing a queue.
-        std::scoped_lock lock(queueVectorMapMutex);
-
-        // Get the vector of queues for type T.
-        QueueVector& queueVector{getQueueVectorForType<T>()};
-
-        // Push the given event into all queues.
-        for (auto& queue : queueVector) {
-            // Cast the queue to type T.
-            EventQueue<T>* castQueue{static_cast<EventQueue<T>*>(queue)};
-
-            // Push the event.
-            castQueue->push(std::move(event));
-        }
-    }
-
-    /**
      * Constructs the given event in place in all queues of type T.
      */
     template <typename T, typename... Args>
@@ -306,21 +284,6 @@ private:
     {
         // Push the event into the queue.
         if (!(queue.enqueue(event))) {
-            std::cout << "Memory allocation failed while pushing an event." << std::endl;
-            std::abort();
-        }
-    }
-
-    /**
-     * Pushes the given event into the queue using move semantics.
-     *
-     * Errors if a memory allocation fails while pushing the event into the
-     * queue.
-     */
-    void push(T&& event)
-    {
-        // Push the event into the queue.
-        if (!(queue.enqueue(std::move(event)))) {
             std::cout << "Memory allocation failed while pushing an event." << std::endl;
             std::abort();
         }
