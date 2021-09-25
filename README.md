@@ -33,9 +33,7 @@ AM::EventQueue<Foo> queue(dispatcher);
 Foo foo{10};
 dispatcher.push<Foo>(foo);
 
-// You can also move or emplace.
-dispatcher.push<Foo>(std::move(foo));
-
+// You can also emplace.
 dispatcher.emplace<Foo>(10);
 
 // Receive the event.
