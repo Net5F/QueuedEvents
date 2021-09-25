@@ -9,7 +9,6 @@ For me, this means my network thread can push messages (and other network events
   * Performance has only lightly been tested, YMMV.
 * Very, very simple interface. One line each to construct a dispatcher, construct and subscribe a queue, notify, and receive.
 * Handles any arbitrary type with no type registration or overhead.
-  * This is a downside if you like to have a list of available types, but you can always do an IDE lookup on EventDispatcher::push() or enqueue().
 * Well-commented, understandable, maintainable code.
   * It's somewhat complex due to the nature of template metaprogramming, but I prioritize keeping things well documented.
 
