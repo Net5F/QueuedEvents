@@ -5,13 +5,11 @@
 
 using namespace AM;
 
-struct TestStruct1
-{
+struct TestStruct1 {
     unsigned int temp1{};
 };
 
-struct TestStruct2
-{
+struct TestStruct2 {
     float temp2{};
 };
 
@@ -19,7 +17,7 @@ TEST_CASE("TestQueuedEvents")
 {
     EventDispatcher dispatcher;
 
-    // Note: This test is to see if it errors or anything. It may not fail 
+    // Note: This test is to see if it errors or anything. It may not fail
     //       cleanly.
     SECTION("Construct/destruct queue")
     {
@@ -177,24 +175,24 @@ TEST_CASE("TestQueuedEvents")
         REQUIRE(queue1.size() == 0);
         REQUIRE(queue2.size() == 0);
     }
-    
+
     SECTION("Push/receive across threads")
     {
         // Construct our queues.
         EventQueue<TestStruct1> queue1(dispatcher);
         EventQueue<TestStruct2> queue2(dispatcher);
-        
+
         // Create our producer thread.
         unsigned int eventsToSend{100};
         std::thread pushThread([&dispatcher, eventsToSend]() {
             TestStruct1 testStruct1{10};
             TestStruct2 testStruct2{20};
-            
+
             // Push a bunch of times.
             for (unsigned int i = 0; i < eventsToSend; ++i) {
                 dispatcher.push<TestStruct1>(testStruct1);
 
-                // We sleep for some small amount of time in a lazy attempt 
+                // We sleep for some small amount of time in a lazy attempt
                 // to shake out any timing issues.
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
@@ -211,17 +209,15 @@ TEST_CASE("TestQueuedEvents")
         TestStruct2 testStruct2;
         while ((struct1Received < eventsToSend)
                && (struct2Received < eventsToSend)) {
-            if ((struct1Received != eventsToSend) 
-               && queue1.pop(testStruct1)) {
+            if ((struct1Received != eventsToSend) && queue1.pop(testStruct1)) {
                 struct1Received++;
             }
 
-            if ((struct2Received != eventsToSend) 
-               && queue2.pop(testStruct2)) {
+            if ((struct2Received != eventsToSend) && queue2.pop(testStruct2)) {
                 struct2Received++;
             }
         }
-        
+
         pushThread.join();
         REQUIRE(true);
     }
@@ -234,17 +230,17 @@ TEST_CASE("TestQueuedEvents")
         std::atomic<bool> start{false};
         std::thread pushThread([&dispatcher, &start, eventsToSend]() {
             TestStruct1 testStruct1{10};
-            
+
             // Busy wait for the main thread to be ready.
             while (!start) {
             }
-            
+
             // Push a bunch of times.
             for (unsigned int i = 0; i < eventsToSend; ++i) {
                 dispatcher.push<TestStruct1>(testStruct1);
             }
         });
-        
+
         // Kick off the push thread and start constructing queues.
         start = true;
         for (unsigned int i = 0; i < eventsToSend; ++i) {
@@ -254,7 +250,7 @@ TEST_CASE("TestQueuedEvents")
         pushThread.join();
         REQUIRE(true);
     }
-    
+
     SECTION("Peek")
     {
         // Construct the queue.
@@ -266,18 +262,18 @@ TEST_CASE("TestQueuedEvents")
             dispatcher.emplace<TestStruct1>(i);
             REQUIRE(queue.size() == i);
         }
-        
+
         // Peek and pop the events.
         for (unsigned int i = 1; i <= 3; ++i) {
             TestStruct1* testStruct{queue.peek()};
             REQUIRE(testStruct != nullptr);
             REQUIRE(testStruct->temp1 == i);
-            
+
             queue.pop();
             REQUIRE(queue.size() == (3 - i));
         }
     }
-    
+
     SECTION("Wait pop")
     {
         // Construct the queue.
@@ -288,21 +284,21 @@ TEST_CASE("TestQueuedEvents")
         std::thread pushThread([&dispatcher]() {
             // Wait.
             std::this_thread::sleep_for(std::chrono::seconds(1));
-            
+
             // Push an event.
             dispatcher.emplace<TestStruct1>(10);
         });
-        
+
         // The event should not yet be ready.
         REQUIRE(queue.size() == 0);
-        
+
         // Wait up to 3 seconds for the event.
         TestStruct1 testStruct{};
         bool result = queue.waitPop(testStruct, (3 * 1000 * 1000));
         REQUIRE(result);
         REQUIRE(testStruct.temp1 == 10);
         REQUIRE(queue.size() == 0);
-        
+
         pushThread.join();
     }
 }
@@ -311,7 +307,7 @@ TEST_CASE("TestQueuedEvents")
 TEST_CASE("TestPerformance", "[.]")
 {
     /**
-     * In this test, we run our event system against a raw moodycamel reader 
+     * In this test, we run our event system against a raw moodycamel reader
      * writer queue.
      *
      * Test steps:
@@ -319,39 +315,41 @@ TEST_CASE("TestPerformance", "[.]")
      *     1. Push the struct into the queue.
      *     2. Pop the struct.
      *
-     * You can control the number of times the above steps are performed 
+     * You can control the number of times the above steps are performed
      * through the iterationCount variable.
      */
     SECTION("Compare performance with raw queue.")
     {
         // The number of times to run data through each queue.
         unsigned int iterationCount{1'000'000};
-        std::cout << "Running " << iterationCount << " structs through the queue." << std::endl;
-        
+        std::cout << "Running " << iterationCount
+                  << " structs through the queue." << std::endl;
+
         // The test struct to use.
         TestStruct1 testStruct{1};
 
         /** Raw queue. */
         // Construct a queue.
         moodycamel::ReaderWriterQueue<TestStruct1> rwQueue;
-        
+
         // Run the test.
         unsigned int count{0};
         auto startTime{std::chrono::high_resolution_clock::now()};
         for (unsigned int i = 0; i < iterationCount; ++i) {
             // Push
             rwQueue.enqueue(testStruct);
-            
+
             // Increment
             count += testStruct.temp1;
-            
+
             // Pop
             TestStruct1 receiveStruct;
             REQUIRE(rwQueue.try_dequeue(receiveStruct));
         }
         auto stopTime{std::chrono::high_resolution_clock::now()};
-        auto queueTestTime{duration_cast<std::chrono::milliseconds>(stopTime - startTime)};
-        
+        auto queueTestTime{
+            duration_cast<std::chrono::milliseconds>(stopTime - startTime)};
+
         // Check that the iterations occurred correctly.
         REQUIRE(count == iterationCount);
 
@@ -366,23 +364,25 @@ TEST_CASE("TestPerformance", "[.]")
         for (unsigned int i = 0; i < iterationCount; ++i) {
             // Push
             dispatcher.push<TestStruct1>(testStruct);
-            
+
             // Increment
             count += testStruct.temp1;
-            
+
             // Pop
             TestStruct1 receiveStruct;
             REQUIRE(eventQueue.pop(receiveStruct));
         }
         stopTime = std::chrono::high_resolution_clock::now();
-        auto dispatcherTestTime{duration_cast<std::chrono::milliseconds>(stopTime - startTime)};
-        
+        auto dispatcherTestTime{
+            duration_cast<std::chrono::milliseconds>(stopTime - startTime)};
+
         // Check that the iterations occurred correctly.
         REQUIRE(count == iterationCount);
-        
+
         // Print the results.
-        std::cout << "Raw queue test time: " << queueTestTime.count() << std::endl;
-        std::cout << "EventQueue/EventDispatcher test time: " 
+        std::cout << "Raw queue test time: " << queueTestTime.count()
+                  << std::endl;
+        std::cout << "EventQueue/EventDispatcher test time: "
                   << dispatcherTestTime.count() << std::endl;
     }
 }

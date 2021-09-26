@@ -29,7 +29,7 @@ namespace AM
  */
 
 // Forward declaration
-template <typename T>
+template<typename T>
 class EventQueue;
 
 //--------------------------------------------------------------------------
@@ -50,7 +50,7 @@ public:
     /**
      * Pushes the given event to all queues of type T.
      */
-    template <typename T>
+    template<typename T>
     void push(const T& event)
     {
         // Acquire a lock before accessing a queue.
@@ -72,7 +72,7 @@ public:
     /**
      * Constructs the given event in place in all queues of type T.
      */
-    template <typename T, typename... Args>
+    template<typename T, typename... Args>
     void emplace(Args&&... args)
     {
         // Acquire a lock before accessing a queue.
@@ -96,7 +96,7 @@ public:
      *
      * Not thread safe. Really only useful for testing.
      */
-    template <typename T>
+    template<typename T>
     std::size_t getNumQueuesForType()
     {
         // Get the vector of queues for type T.
@@ -109,7 +109,8 @@ public:
 private:
     /** Only give EventQueue access to subscribe() and unsubscribe(), so users
         don't get confused about how to use the interface. */
-    template<typename> friend class EventQueue;
+    template<typename>
+    friend class EventQueue;
 
     /**
      * Returns the next unique integer key value. Used by getKeyForType().
@@ -123,7 +124,7 @@ private:
     /**
      * Returns the vector of queues that hold type T.
      */
-    template <typename T>
+    template<typename T>
     QueueVector& getQueueVectorForType()
     {
         // Get the key associated with type T.
@@ -142,7 +143,7 @@ private:
      *
      * Only used by EventQueue.
      */
-    template <typename T>
+    template<typename T>
     void subscribe(EventQueue<T>* queuePtr)
     {
         // Acquire a lock since we're going to be modifying data structures.
@@ -183,7 +184,8 @@ private:
         // Note: Since this function is only called in EventQueue's
         //       destructor, we should expect it to always find the queue.
         if (queueIt == queueVector.end()) {
-            std::cout << "Failed to find queue while unsubscribing." << std::endl;
+            std::cout << "Failed to find queue while unsubscribing."
+                      << std::endl;
             std::abort();
         }
 
@@ -212,7 +214,7 @@ private:
  * Supports pushing events into the queue (done by Dispatcher), and popping
  * events off the queue.
  */
-template <typename T>
+template<typename T>
 class EventQueue
 {
 public:
@@ -246,10 +248,7 @@ public:
      *
      * @return true if an event was available, else false.
      */
-    bool pop()
-    {
-        return queue.pop();
-    }
+    bool pop() { return queue.pop(); }
 
     /**
      * Attempts to pop the front event from the queue, blocking and waiting
@@ -270,18 +269,12 @@ public:
      * to the front event of the queue (the one that would be removed by the
      * next call to pop()).
      */
-    T* peek() const
-    {
-        return queue.peek();
-    }
+    T* peek() const { return queue.peek(); }
 
     /**
      * Returns the number of elements in the queue.
      */
-    std::size_t size()
-    {
-        return queue.size_approx();
-    }
+    std::size_t size() { return queue.size_approx(); }
 
 private:
     /** Only give EventDispatcher access to push(), so users don't get confused
@@ -298,7 +291,8 @@ private:
     {
         // Push the event into the queue.
         if (!(queue.enqueue(event))) {
-            std::cout << "Memory allocation failed while pushing an event." << std::endl;
+            std::cout << "Memory allocation failed while pushing an event."
+                      << std::endl;
             std::abort();
         }
     }
@@ -314,7 +308,8 @@ private:
     {
         // Push the event into the queue.
         if (!(queue.emplace(std::forward<Args>(args)...))) {
-            std::cout << "Memory allocation failed while pushing an event." << std::endl;
+            std::cout << "Memory allocation failed while pushing an event."
+                      << std::endl;
             std::abort();
         }
     }
