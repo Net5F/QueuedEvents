@@ -41,12 +41,11 @@ bool result = queue.pop(receivedFoo); // Will be false if queue is empty.
 
 // You can also peek and empty pop.
 Foo* fooPtr = queue.peek(); // Will be nullptr if queue is empty.
+queue.pop(); // Do this after you're done using the pointer.
 
 // You can also do a blocking wait pop.
 int timeoutUs = 1 * 1000 * 1000; // Time to wait in microseconds.
 bool result = queue.waitPop(receivedFoo, timeoutUs); // Will be false if timed out.
-
-queue.pop(); // Do this after you're done using the pointer.
 ```
 
 ## Build
