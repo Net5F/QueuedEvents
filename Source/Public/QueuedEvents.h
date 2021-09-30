@@ -57,7 +57,7 @@ public:
     using SorterVector = std::vector<void*>;
 
     /**
-     * Pushes the given event to all queues of type T.
+     * Pushes the given event to all EventQueues of type T.
      */
     template<typename T>
     void push(const T& event)
@@ -79,7 +79,7 @@ public:
     }
 
     /**
-     * Constructs the given event in place in all queues of type T.
+     * Constructs the given event in place in all EventQueues of type T.
      */
     template<typename T, typename... Args>
     void emplace(Args&&... args)
@@ -101,7 +101,7 @@ public:
     }
 
     /**
-     * Pushes the given event to all sorters of type T.
+     * Pushes the given event to all EventSorters of type T.
      */
     template<typename T>
     void push(const T& event, uint32_t tickNum)
