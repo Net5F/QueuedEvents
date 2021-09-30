@@ -498,19 +498,18 @@ public:
      *
      * Effectively, how far into the future we'll buffer messages for.
      */
-    static constexpr std::size_t BUFFER_SIZE = 10;
+    static constexpr std::size_t REQUESTED_BUFFER_SIZE = 10;
+    static constexpr std::size_t BUFFER_SIZE = REQUESTED_BUFFER_SIZE + 1;
 
     /** The range of difference (inclusive) between a received message's tickNum
        and our currentTick that we'll push a message for.
        Outside of the bounds, we'll drop the message. */
     static constexpr int MESSAGE_DROP_BOUND_LOWER = 0;
-    static constexpr int MESSAGE_DROP_BOUND_UPPER = BUFFER_SIZE - 1;
+    static constexpr int MESSAGE_DROP_BOUND_UPPER = REQUESTED_BUFFER_SIZE - 1;
 
     EventSorter(EventDispatcher& inDispatcher, uint32_t currentTick = 0)
     : dispatcher{inDispatcher}
     , currentTick(currentTick)
-    , head(0)
-    , isReceiving(false)
     {
         dispatcher.subscribe(this);
     }
@@ -535,25 +534,13 @@ public:
      * @return If tickNum is valid (not too new or old), returns a reference to
      *         a queue. Else, errors.
      */
-    std::queue<T>& startReceive(uint32_t tickNum)
+    moodycamel::ReaderWriterQueue<T>& startReceive(uint32_t tickNum)
     {
-        if (isReceiving) {
-            std::cout << "Tried to startReceive twice in a row. You probably "
-                      << "forgot to call endReceive.";
-            std::abort();
-        }
-
-        // Acquire the mutex.
-        mutex.lock();
-
         // Check if the tick is valid.
         if (isTickValid(tickNum) != ValidityResult::Valid) {
             std::cout << "Tried to start receive for an invalid tick number." << std::endl;
             std::abort();
         }
-
-        // Flag that we've started the receive operation.
-        isReceiving = true;
 
         return queueBuffer[tickNum % BUFFER_SIZE];
     }
@@ -571,19 +558,13 @@ public:
      */
     void endReceive()
     {
-        if (!isReceiving) {
-            std::cout << "Tried to endReceive() while not receiving." << std::endl;
-        }
-
         // Advance the state.
-        head++;
         currentTick++;
 
-        // Flag that we're ending the receive operation.
-        isReceiving = false;
-
-        // Release the mutex.
-        mutex.unlock();
+        // Clear the last queue, in case something got pushed (we have an extra
+        // inaccessible index on the end, so this is safe to do).
+        while (queueBuffer[(currentTick - 1) % BUFFER_SIZE].pop()) {
+        }
     }
 
     /**
@@ -594,7 +575,7 @@ public:
     ValidityResult isTickValid(uint32_t tickNum)
     {
         // Check if tickNum is within our lower and upper bounds.
-        uint32_t upperBound = (currentTick + BUFFER_SIZE - 1);
+        uint32_t upperBound = (currentTick + REQUESTED_BUFFER_SIZE - 1);
         if (tickNum < currentTick) {
             return ValidityResult::TooLow;
         }
@@ -612,7 +593,7 @@ public:
      * NOTE: Should not be used to fetch the current tick, get a ref to the
      *       Game's currentTick instead. This is just for unit testing.
      */
-    uint32_t getCurrentTick() { return currentTick; }
+    uint32_t getCurrentTick() { return currentTick.load(); }
 
 private:
     /** Only give EventDispatcher access to push(), so users don't get confused
@@ -626,26 +607,20 @@ private:
      *
      * @return True if tickNum was valid and the message was pushed, else false.
      */
-    PushResult push(const T& message, uint32_t tickNum)
+    PushResult push(const T& event, uint32_t tickNum)
     {
         /** Try to push the message. */
-        // Acquire the mutex.
-        mutex.lock();
-
         // Check validity of the message's tick.
         ValidityResult validity = isTickValid(tickNum);
 
         // If tickNum is valid, push the message.
         if (validity == ValidityResult::Valid) {
-            queueBuffer[tickNum % BUFFER_SIZE].push(message);
+            queueBuffer[tickNum % BUFFER_SIZE].enqueue(event);
         }
 
         // Calc the tick diff.
         int64_t diff
             = static_cast<int64_t>(tickNum) - static_cast<int64_t>(currentTick);
-
-        // Release the mutex.
-        mutex.unlock();
 
         return {validity, diff};
     }
@@ -660,42 +635,12 @@ private:
      * (e.g. if currentTick is 42, queueBuffer[0] holds messages for tick
      * number 42, queueBuffer[1] holds tick 43, etc.)
      */
-    std::array<std::queue<T>, BUFFER_SIZE> queueBuffer;
+    std::array<moodycamel::ReaderWriterQueue<T>, BUFFER_SIZE> queueBuffer;
 
     /**
      * The current tick that we've advanced to.
      */
-    uint32_t currentTick;
-
-    /**
-     * The index at which we're holding the current tick.
-     */
-    std::size_t head;
-
-    /**
-     * Used to prevent queueBuffer and head updates while a push or receive is
-     * happening.
-     */
-    std::mutex mutex;
-
-    /**
-     * Tracks whether a receive operation has been started or not.
-     * Note: Not thread safe. Only call from the same thread as startReceive()
-     *       and endReceive().
-     */
-    bool isReceiving;
-
-    //----------------------------------------------------------------------------
-    // Convenience Functions
-    //----------------------------------------------------------------------------
-    /**
-     * Returns the index, incremented by amount. Accounts for wrap-around.
-     */
-    std::size_t increment(const std::size_t index,
-                          const std::size_t amount) const
-    {
-        return (index + amount) % BUFFER_SIZE;
-    }
+    std::atomic<uint32_t> currentTick;
 };
 
 } // End namespace AM

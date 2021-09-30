@@ -40,11 +40,11 @@ TEST_CASE("TestEventSorter")
         dispatcher.push<TestStruct1>(testStruct, tickNum);
 
         // Check if we got the event.
-        std::queue<TestStruct1>& queue = sorter.startReceive(42);
-        REQUIRE(!(queue.empty()));
+        moodycamel::ReaderWriterQueue<TestStruct1>& queue = sorter.startReceive(42);
+        REQUIRE(queue.size_approx() == 1);
 
-        TestStruct1 testEvent = std::move(queue.front());
-        queue.pop();
+        TestStruct1 testEvent{};
+        REQUIRE(queue.try_dequeue(testEvent));
         REQUIRE(testEvent.temp1 == 10);
         
         // Advance the tick.
