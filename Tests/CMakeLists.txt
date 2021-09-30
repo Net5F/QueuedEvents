@@ -11,7 +11,8 @@ add_subdirectory("${PROJECT_SOURCE_DIR}/Libraries/Catch2/"
 # Add the test executable target.
 add_executable(QueuedEventsTests
     Private/TestMain.cpp
-    Private/TestQueuedEvents.cpp
+    Private/TestEventQueue.cpp
+    Private/TestEventSorter.cpp
 )
 
 # Include our headers.

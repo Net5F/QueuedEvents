@@ -13,7 +13,7 @@ struct TestStruct2 {
     float temp2{};
 };
 
-TEST_CASE("TestQueuedEvents")
+TEST_CASE("TestEventQueue")
 {
     EventDispatcher dispatcher;
 
@@ -303,8 +303,8 @@ TEST_CASE("TestQueuedEvents")
     }
 }
 
-// This test is hidden. Run it with "./QueuedEventsTests.exe TestPerformance"
-TEST_CASE("TestPerformance", "[.]")
+// This test is hidden. Run it with "./QueuedEventsTests.exe TestQueuePerformance"
+TEST_CASE("TestQueuePerformance", "[.]")
 {
     /**
      * In this test, we run our event system against a raw moodycamel reader
