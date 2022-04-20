@@ -28,4 +28,8 @@ target_compile_features(QueuedEvents PRIVATE cxx_std_20)
 set_target_properties(QueuedEvents PROPERTIES CXX_EXTENSIONS OFF)
 
 # Enable compile warnings.
-target_compile_options(QueuedEvents PRIVATE -Wall -Wextra)
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_compile_options(QueuedEvents PUBLIC -Wall -Wextra)
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    target_compile_options(QueuedEvents PUBLIC /W4 /permissive-)
+endif()
