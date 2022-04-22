@@ -4,19 +4,19 @@ message(STATUS "Configuring QueuedEvents")
 
 # Add the library target.
 add_library(QueuedEvents
-    PUBLIC
+    INTERFACE
         Public/QueuedEvents.h
 )
 
 # Include our headers.
 target_include_directories(QueuedEvents
-    PUBLIC
+    INTERFACE
         ${CMAKE_CURRENT_SOURCE_DIR}/Public
 )
 
 # Link our dependencies.
 target_link_libraries(QueuedEvents
-    PUBLIC
+    INTERFACE
         readerwriterqueue
 )
 
@@ -24,12 +24,12 @@ target_link_libraries(QueuedEvents
 set_target_properties(QueuedEvents PROPERTIES LINKER_LANGUAGE CXX)
 
 # Compile with C++20.
-target_compile_features(QueuedEvents PRIVATE cxx_std_20)
+target_compile_features(QueuedEvents INTERFACE cxx_std_20)
 set_target_properties(QueuedEvents PROPERTIES CXX_EXTENSIONS OFF)
 
 # Enable compile warnings.
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    target_compile_options(QueuedEvents PUBLIC -Wall -Wextra)
+    target_compile_options(QueuedEvents INTERFACE -Wall -Wextra)
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    target_compile_options(QueuedEvents PUBLIC /W4 /permissive-)
+    target_compile_options(QueuedEvents INTERFACE /W3 /permissive-)
 endif()
