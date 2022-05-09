@@ -3,10 +3,13 @@ cmake_minimum_required(VERSION 3.16)
 message(STATUS "Configuring Unit Tests")
 
 # Configure Catch2.
-SET(CATCH_BUILD_TESTING OFF CACHE BOOL "Build SelfTest project")
-SET(CATCH_INSTALL_DOCS OFF CACHE BOOL "Install documentation alongside library")
-add_subdirectory("${PROJECT_SOURCE_DIR}/Libraries/Catch2/"
-                 "${PROJECT_BINARY_DIR}/Libraries/Catch2/")
+if (NOT TARGET Catch2::Catch2)
+    message(STATUS "QueuedEvents: Catch2 target not provided. Configuring Catch2.")
+    SET(CATCH_BUILD_TESTING OFF CACHE BOOL "Build SelfTest project")
+    SET(CATCH_INSTALL_DOCS OFF CACHE BOOL "Install documentation alongside library")
+    add_subdirectory("${PROJECT_SOURCE_DIR}/Libraries/Catch2/"
+                     "${PROJECT_BINARY_DIR}/Libraries/Catch2/")
+)
 
 # Add the test executable target.
 add_executable(QueuedEventsTests
