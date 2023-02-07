@@ -128,7 +128,7 @@ TEST_CASE("TestQueuedEvents")
 
         // Push TestStruct2 multiple times.
         for (unsigned int i = 0; i < 5; ++i) {
-            dispatcher.emplace<TestStruct2>(i * 20);
+            dispatcher.emplace<TestStruct2>(i * 20.f);
         }
         REQUIRE(queue2.size() == 5);
 
@@ -140,7 +140,7 @@ TEST_CASE("TestQueuedEvents")
 
             TestStruct2 testEvent2;
             REQUIRE(queue2.pop(testEvent2));
-            REQUIRE(testEvent2.temp2 == static_cast<float>((i * 20)));
+            REQUIRE(testEvent2.temp2 == (i * 20.f));
         }
         REQUIRE(queue.size() == 0);
         REQUIRE(queue2.size() == 0);
